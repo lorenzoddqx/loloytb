@@ -9,7 +9,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from scrapers import check_product, SUPPORTED_SITES
+from scrapers import check_product, SUPPORTED_SITES, sort_by_priority
 from notifier import notify, get_active_channels, get_notification_log
 
 load_dotenv()
@@ -123,6 +123,7 @@ def check_all_products():
         if not products:
             return
         start = time.monotonic()
+        products = sort_by_priority(products)
         print(f"[{datetime.now():%H:%M:%S}] Checking {len(products)} products...")
         results = {}
         with ThreadPoolExecutor(max_workers=10) as pool:

@@ -19,72 +19,133 @@ SUPPORTED_SITES = {
         "icon": "🛒",
         "account_url": "https://www.amazon.fr/ap/signin",
         "desc": "Marketplace general - ETB, coffrets, boosters",
+        "priority": 1,
     },
     "Fnac": {
         "domains": ["fnac.com"],
         "icon": "📦",
         "account_url": "https://secure.fnac.com/identity/server/authenticate",
         "desc": "Precommandes + Click & Collect",
+        "priority": 2,
     },
     "Micromania": {
         "domains": ["micromania.fr"],
         "icon": "🎮",
         "account_url": "https://www.micromania.fr/login",
         "desc": "Exclusivites gaming + cartes Pokemon",
+        "priority": 2,
     },
     "Pokemon Center": {
         "domains": ["pokemoncenter.com"],
         "icon": "⚡",
         "account_url": "https://www.pokemoncenter.com/sign-in",
         "desc": "Boutique officielle - exclusivites Pokemon",
+        "priority": 1,
     },
     "Cdiscount": {
         "domains": ["cdiscount.com"],
         "icon": "💰",
         "account_url": "https://clients.cdiscount.com/Account/Login",
         "desc": "Prix bas - ventes flash",
+        "priority": 3,
     },
     "Cultura": {
         "domains": ["cultura.com"],
         "icon": "🎨",
         "account_url": "https://www.cultura.com/customer/account/login",
         "desc": "Cartes, coffrets, accessoires Pokemon",
+        "priority": 2,
     },
     "Carrefour": {
         "domains": ["carrefour.fr"],
         "icon": "🏪",
         "account_url": "https://www.carrefour.fr/mon-compte/connexion",
         "desc": "ETB et coffrets en ligne + Drive",
+        "priority": 3,
     },
     "Leclerc": {
         "domains": ["e.leclerc", "culture.leclerc"],
         "icon": "🛍️",
         "account_url": "https://www.e.leclerc/mon-compte",
         "desc": "Coffrets Pokemon + Drive",
+        "priority": 3,
     },
     "Auchan": {
         "domains": ["auchan.fr"],
         "icon": "🔴",
         "account_url": "https://www.auchan.fr/login",
         "desc": "ETB et coffrets Pokemon",
+        "priority": 3,
+    },
+    "Monoprix": {
+        "domains": ["monoprix.fr"],
+        "icon": "🟡",
+        "account_url": "https://www.monoprix.fr/mon-compte",
+        "desc": "Jouets et cartes Pokemon - livraison rapide",
+        "priority": 3,
+    },
+    "Intermarche": {
+        "domains": ["intermarche.com"],
+        "icon": "🔶",
+        "account_url": "https://www.intermarche.com/mon-compte",
+        "desc": "Coffrets et ETB Pokemon - Drive + livraison",
+        "priority": 3,
+    },
+    "JouéClub": {
+        "domains": ["joueclub.fr"],
+        "icon": "🧸",
+        "account_url": "https://www.joueclub.fr/customer/account/login",
+        "desc": "Specialiste jouets - coffrets et cartes Pokemon",
+        "priority": 2,
+    },
+    "King Jouet": {
+        "domains": ["king-jouet.com"],
+        "icon": "👑",
+        "account_url": "https://www.king-jouet.com/customer/account/login",
+        "desc": "Jouets et jeux - ETB, displays Pokemon",
+        "priority": 2,
+    },
+    "Rakuten": {
+        "domains": ["rakuten.com", "fr.shopping.rakuten.com"],
+        "icon": "🅡",
+        "account_url": "https://fr.shopping.rakuten.com/login",
+        "desc": "Marketplace - prix variables, cashback",
+        "priority": 4,
+    },
+    "Smyths Toys": {
+        "domains": ["smythstoys.com"],
+        "icon": "🎪",
+        "account_url": "https://www.smythstoys.com/fr/fr-fr/login",
+        "desc": "Jouets - coffrets Pokemon, exclusivites",
+        "priority": 2,
     },
     "Philibert": {
         "domains": ["philibert.net"],
         "icon": "🃏",
         "account_url": "https://www.philibert.net/mon-compte",
         "desc": "Specialiste jeux de cartes - precommandes Pokemon",
+        "priority": 2,
     },
     "Pokemart": {
         "domains": ["pokemart.fr"],
         "icon": "📮",
         "account_url": "https://www.pokemart.fr/connexion",
         "desc": "Boutique specialisee Pokemon FR",
+        "priority": 1,
     },
     "Cardmarket": {
         "domains": ["cardmarket.com"],
         "icon": "📊",
         "account_url": "https://www.cardmarket.com/en/Login",
         "desc": "Marketplace cartes a l'unite + scellees",
+        "priority": 2,
+    },
+    "Gamestop": {
+        "domains": ["gamestop.fr", "gamestop.com"],
+        "icon": "🕹️",
+        "account_url": "https://www.gamestop.fr/Profile/Login",
+        "desc": "Gaming et cartes Pokemon - exclusivites",
+        "priority": 3,
     },
 }
 
@@ -318,7 +379,25 @@ SCRAPERS = {
     "Carrefour": _scrape_generic,
     "Leclerc": _scrape_generic,
     "Auchan": _scrape_generic,
+    "Monoprix": _scrape_generic,
+    "Intermarche": _scrape_generic,
+    "JouéClub": _scrape_generic,
+    "King Jouet": _scrape_generic,
+    "Rakuten": _scrape_generic,
+    "Smyths Toys": _scrape_generic,
     "Philibert": _scrape_generic,
     "Pokemart": _scrape_generic,
     "Cardmarket": _scrape_generic,
+    "Gamestop": _scrape_generic,
 }
+
+
+def get_site_priority(url):
+    for site_key, site_info in SUPPORTED_SITES.items():
+        if any(domain in url for domain in site_info["domains"]):
+            return site_info.get("priority", 5)
+    return 5
+
+
+def sort_by_priority(products):
+    return sorted(products, key=lambda p: get_site_priority(p["url"]))
