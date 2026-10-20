@@ -13,6 +13,8 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER", "")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 
 def send_discord(product_name, url, price, status):
@@ -39,6 +41,33 @@ def send_discord(product_name, url, price, status):
             print(f"  > Erreur Discord: {resp.status_code}")
     except Exception as e:
         print(f"  > Erreur Discord: {e}")
+
+
+def send_telegram(product_name, url, price, status):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    icon = "\U0001f7e2" if status == "EN STOCK" else "\U0001f7e0"
+    text = (
+        f"{icon} <b>{status}</b>\n\n"
+        f"<b>{product_name}</b>\n"
+        f"Prix: {price or 'Non disponible'}\n\n"
+        f'<a href="{url}">Acheter maintenant</a>'
+    )
+    api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": False,
+    }
+    try:
+        resp = requests.post(api_url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            print(f"  > Notification Telegram envoyee pour {product_name}")
+        else:
+            print(f"  > Erreur Telegram: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"  > Erreur Telegram: {e}")
 
 
 def send_email(product_name, url, price, status):
@@ -75,4 +104,5 @@ def notify(product_name, url, price, status):
     print(f"  Lien: {url}")
     print(f"{'='*50}")
     send_discord(product_name, url, price, status)
+    send_telegram(product_name, url, price, status)
     send_email(product_name, url, price, status)

@@ -1,6 +1,8 @@
 import os
 import json
+import time
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
@@ -95,12 +97,29 @@ DEFAULT_RELEASES = [
 ]
 
 
+def _check_single(product_snapshot):
+    url = product_snapshot["url"]
+    return url, check_product(url)
+
+
 def check_all_products():
+    start = time.monotonic()
     with lock:
         products = load_products()
-    updated = False
+    if not products:
+        return
+    print(f"[{datetime.now():%H:%M:%S}] Checking {len(products)} products...")
+    results = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(_check_single, p): p["url"] for p in products}
+        for future in as_completed(futures):
+            try:
+                url, result = future.result()
+                results[url] = result
+            except Exception as e:
+                print(f"  > Check failed for {futures[future]}: {e}")
     for product in products:
-        result = check_product(product["url"])
+        result = results.get(product["url"])
         if result is None:
             continue
         was_in_stock = product.get("in_stock", False)
@@ -113,14 +132,14 @@ def check_all_products():
         if not was_in_stock and now_in_stock:
             notify(product["name"], product["url"], product["price"], "EN STOCK")
             product["in_stock"] = True
-            updated = True
         elif was_in_stock and not now_in_stock:
             product["in_stock"] = False
-            updated = True
         else:
             product["in_stock"] = now_in_stock
     with lock:
         save_products(products)
+    elapsed = time.monotonic() - start
+    print(f"[{datetime.now():%H:%M:%S}] Done in {elapsed:.1f}s")
 
 
 @app.route("/")
@@ -136,6 +155,7 @@ def index():
         accounts=accounts,
         releases=releases,
         in_stock_count=in_stock_count,
+        check_interval=CHECK_INTERVAL,
     )
 
 
