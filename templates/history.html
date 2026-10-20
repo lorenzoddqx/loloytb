@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% set active_page = "history" %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin: 20px 0 8px; }
+    .page-header p { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+    .history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .history-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 20px;
+    }
+    .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .history-name { font-weight: 600; font-size: 15px; }
+    .history-name a { color: var(--text); text-decoration: none; }
+    .history-name a:hover { text-decoration: underline; }
+    .history-site { font-size: 12px; color: var(--text-dim); }
+    .history-current {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--green);
+    }
+    .price-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .price-table th {
+        text-align: left;
+        color: var(--text-dim);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 400;
+    }
+    .price-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+    }
+    .price-change-up { color: var(--red); }
+    .price-change-down { color: var(--green); }
+    .no-history { color: var(--text-dim); font-size: 13px; font-style: italic; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Historique des Prix</h2>
+    <p>Suivi des variations de prix pour chaque produit. Les changements sont enregistres a chaque verification.</p>
+</div>
+
+<div class="history-list">
+    {% if not products %}
+    <div class="empty-state">
+        <p>Aucun produit suivi</p>
+        <small>Ajoute des produits dans le Tracker pour voir leur historique de prix</small>
+    </div>
+    {% endif %}
+
+    {% for product in products %}
+    {% set prices = history_map.get(product.url, []) %}
+    <div class="history-card">
+        <div class="history-header">
+            <div>
+                <div class="history-name">
+                    <a href="{{ product.url }}" target="_blank" rel="noopener">{{ product.name }}</a>
+                </div>
+                <div class="history-site">{{ product.site }}</div>
+            </div>
+            {% if product.price %}
+            <div class="history-current">{{ product.price }}</div>
+            {% endif %}
+        </div>
+        {% if prices %}
+        <table class="price-table">
+            <thead>
+                <tr><th>Date</th><th>Prix</th><th>Variation</th></tr>
+            </thead>
+            <tbody>
+                {% for p in prices|reverse %}
+                <tr>
+                    <td>{{ p.date }}</td>
+                    <td>{{ p.price }}</td>
+                    <td>
+                        {% if not loop.last %}
+                            {% set prev = prices[loop.revindex0 - 1] %}
+                            {% if prev.price != p.price %}
+                            <span>{{ prev.price }} &rarr; {{ p.price }}</span>
+                            {% else %}
+                            <span style="color:var(--text-dim)">—</span>
+                            {% endif %}
+                        {% else %}
+                        <span style="color:var(--text-dim)">Premier releve</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-history">Pas encore de donnees — l'historique commence au prochain check.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

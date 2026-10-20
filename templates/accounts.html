@@ -5,33 +5,68 @@
 <style>
     .page-header { margin: 20px 0 8px; }
     .page-header p { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
-    .site-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .ready-summary {
+        display: flex;
+        gap: 12px;
+        margin: 16px 0;
+        flex-wrap: wrap;
+    }
+    .ready-stat {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 20px;
+        flex: 1;
+        min-width: 140px;
+    }
+    .ready-stat .number { font-size: 28px; font-weight: 700; }
+    .ready-stat .label { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .ready-stat.green .number { color: var(--green); }
+    .ready-stat.orange .number { color: var(--orange); }
+
+    .checklist-info {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .checklist-info strong { color: var(--accent); }
+    .checklist-info ul { margin: 8px 0 0 20px; color: var(--text-dim); }
+    .checklist-info li { margin: 4px 0; }
+
+    .site-grid { display: flex; flex-direction: column; gap: 10px; }
     .site-row {
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 16px 20px;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 16px;
     }
     .site-row.ready { border-left: 3px solid var(--green); }
     .site-row.not-ready { border-left: 3px solid var(--orange); }
-    .site-icon { font-size: 28px; flex-shrink: 0; }
+    .site-icon { font-size: 28px; flex-shrink: 0; padding-top: 2px; }
     .site-info { flex: 1; }
     .site-name { font-weight: 600; font-size: 15px; }
     .site-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
     .site-note { font-size: 12px; color: var(--blue); margin-top: 4px; font-style: italic; }
-    .site-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
-    .ready-badge {
-        padding: 4px 10px;
-        border-radius: 20px;
+    .site-checklist {
+        margin-top: 8px;
         font-size: 12px;
-        font-weight: 600;
+        color: var(--text-dim);
+        line-height: 1.7;
     }
+    .site-checklist label { cursor: pointer; display: block; }
+    .site-checklist input[type="checkbox"] { margin-right: 6px; accent-color: var(--green); }
+    .site-actions { display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0; flex-wrap: wrap; }
+    .ready-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
     .ready-badge.yes { background: #2ecc7133; color: var(--green); }
     .ready-badge.no { background: #f39c1233; color: var(--orange); }
-    .note-form { display: flex; gap: 6px; margin-top: 6px; }
+    .note-form { display: flex; gap: 6px; margin-top: 8px; }
     .note-form input { padding: 6px 10px; font-size: 12px; flex: 1; min-width: 120px; }
     .note-form button { font-size: 11px; padding: 6px 10px; }
     @media (max-width: 600px) {
@@ -43,8 +78,32 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>Mes Comptes</h2>
-    <p>Prepare tes comptes a l'avance sur chaque site pour acheter rapidement quand un restock arrive. Adresse de livraison, moyen de paiement, et mode de livraison configures = achat en quelques secondes.</p>
+    <h2>Mes Comptes — Pret a acheter</h2>
+    <p>Prepare tes comptes a l'avance pour acheter en quelques secondes quand l'alerte arrive.</p>
+</div>
+
+{% set ready_count = accounts | selectattr("ready") | list | length %}
+<div class="ready-summary">
+    <div class="ready-stat green">
+        <div class="number">{{ ready_count }}</div>
+        <div class="label">Comptes prets</div>
+    </div>
+    <div class="ready-stat orange">
+        <div class="number">{{ sites|length - ready_count }}</div>
+        <div class="label">A configurer</div>
+    </div>
+</div>
+
+<div class="checklist-info">
+    <strong>Pour chaque site, verifie que tu as :</strong>
+    <ul>
+        <li>Un compte cree et verifie (email confirme)</li>
+        <li>Adresse de livraison enregistree</li>
+        <li>Moyen de paiement enregistre (CB / PayPal)</li>
+        <li>Mode de livraison par defaut configure (express si possible)</li>
+        <li>Session connectee dans ton navigateur (reste connecte)</li>
+    </ul>
+    Quand tu recois une alerte, tu n'as qu'a <strong>cliquer le lien → ajouter au panier → confirmer</strong>. Pas de formulaire a remplir.
 </div>
 
 <div class="site-grid">
@@ -59,24 +118,30 @@
             {% if account and account.note %}
             <div class="site-note">{{ account.note }}</div>
             {% endif %}
+            <div class="site-checklist">
+                <label><input type="checkbox" {{ 'checked' if is_ready else '' }} disabled> Compte cree</label>
+                <label><input type="checkbox" {{ 'checked' if is_ready else '' }} disabled> Adresse enregistree</label>
+                <label><input type="checkbox" {{ 'checked' if is_ready else '' }} disabled> CB / PayPal enregistre</label>
+                <label><input type="checkbox" {{ 'checked' if is_ready else '' }} disabled> Session connectee</label>
+            </div>
             <form class="note-form" method="POST" action="/accounts/note">
                 <input type="hidden" name="site" value="{{ site_name }}">
-                <input type="text" name="note" placeholder="Note (ex: CB enregistree, adresse OK)" value="{{ account.note if account else '' }}">
+                <input type="text" name="note" placeholder="Notes (ex: CB Visa OK, adresse Paris)" value="{{ account.note if account else '' }}">
                 <button type="submit" class="btn btn-secondary btn-sm">Sauver</button>
             </form>
         </div>
         <div class="site-actions">
             <span class="ready-badge {{ 'yes' if is_ready else 'no' }}">
-                {{ "PRET" if is_ready else "A CONFIGURER" }}
+                {{ "PRET" if is_ready else "A FAIRE" }}
             </span>
             <form method="POST" action="/accounts/toggle">
                 <input type="hidden" name="site" value="{{ site_name }}">
                 <button type="submit" class="btn {{ 'btn-secondary' if is_ready else 'btn-green' }} btn-sm">
-                    {{ "Retirer" if is_ready else "Marquer pret" }}
+                    {{ "Retirer" if is_ready else "Tout OK" }}
                 </button>
             </form>
             <a href="{{ site_info.account_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-                Creer/Ouvrir compte
+                Ouvrir le site
             </a>
         </div>
     </div>

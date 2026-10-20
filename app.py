@@ -18,7 +18,8 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
 PRODUCTS_FILE = "products.json"
 ACCOUNTS_FILE = "accounts.json"
 RELEASES_FILE = "releases.json"
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "120"))
+HISTORY_FILE = "price_history.json"
+CHECK_INTERVAL = max(30, int(os.getenv("CHECK_INTERVAL", "30")))
 
 lock = threading.Lock()
 
@@ -59,6 +60,32 @@ def load_releases():
     return releases
 
 
+def load_history():
+    return _load_json(HISTORY_FILE)
+
+
+def save_history(history):
+    _save_json(HISTORY_FILE, history)
+
+
+def record_price(url, price):
+    if not price:
+        return
+    history = load_history()
+    entry = {"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "price": price}
+    if url not in [h["url"] for h in history]:
+        history.append({"url": url, "prices": [entry]})
+    else:
+        for h in history:
+            if h["url"] == url:
+                if not h["prices"] or h["prices"][-1]["price"] != price:
+                    h["prices"].append(entry)
+                    if len(h["prices"]) > 500:
+                        h["prices"] = h["prices"][-500:]
+                break
+    save_history(history)
+
+
 DEFAULT_RELEASES = [
     {"name": "Pokemon 30 ans - Coffret Collection Premium", "date": "2026", "status": "rumeur", "category": "coffret"},
     {"name": "Pokemon 30 ans - ETB Elite Trainer Box", "date": "2026", "status": "rumeur", "category": "etb"},
@@ -82,15 +109,13 @@ def check_all_products():
         product["price"] = result["price"] or product.get("price")
         if result["title"] != "Produit inconnu":
             product["name"] = result["title"]
+        record_price(product["url"], product.get("price"))
         if not was_in_stock and now_in_stock:
             notify(product["name"], product["url"], product["price"], "EN STOCK")
             product["in_stock"] = True
             updated = True
         elif was_in_stock and not now_in_stock:
             product["in_stock"] = False
-            updated = True
-        elif now_in_stock != was_in_stock:
-            product["in_stock"] = now_in_stock
             updated = True
         else:
             product["in_stock"] = now_in_stock
@@ -129,8 +154,13 @@ def add_product():
             break
 
     if not site_found:
-        flash("Site non supporté. Sites supportés : " + ", ".join(SUPPORTED_SITES.keys()), "error")
-        return redirect(url_for("index"))
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            site_found = parsed.netloc.replace("www.", "")
+        else:
+            flash("URL invalide.", "error")
+            return redirect(url_for("index"))
 
     products = load_products()
     if any(p["url"] == url for p in products):
@@ -241,9 +271,26 @@ def remove_release():
     return redirect(url_for("releases_page"))
 
 
+@app.route("/history")
+def history_page():
+    products = load_products()
+    history = load_history()
+    history_map = {h["url"]: h["prices"] for h in history}
+    return render_template("history.html", products=products, history_map=history_map)
+
+
 @app.route("/api/products")
 def api_products():
     return jsonify(load_products())
+
+
+@app.route("/api/history/<path:url>")
+def api_history(url):
+    history = load_history()
+    for h in history:
+        if h["url"] == url:
+            return jsonify(h["prices"])
+    return jsonify([])
 
 
 scheduler = BackgroundScheduler(daemon=True)
