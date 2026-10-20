@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% set active_page = "releases" %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin: 20px 0 8px; }
+    .page-header p { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+    .add-release { margin: 16px 0; }
+    .add-release .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .add-release input, .add-release select { flex: 1; min-width: 140px; }
+    .release-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .release-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .release-cat {
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+    .cat-etb { background: #e6394633; color: var(--accent); }
+    .cat-coffret { background: #3498db33; color: var(--blue); }
+    .cat-display { background: #2ecc7133; color: var(--green); }
+    .cat-upc { background: #f39c1233; color: var(--orange); }
+    .cat-autre { background: #2a2a3e; color: var(--text-dim); }
+    .release-info { flex: 1; }
+    .release-name { font-weight: 600; font-size: 15px; }
+    .release-date { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .release-status {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+    .status-rumeur { background: #f39c1233; color: var(--orange); }
+    .status-confirme { background: #2ecc7133; color: var(--green); }
+    .status-disponible { background: #e6394633; color: var(--accent); }
+    @media (max-width: 600px) {
+        .release-card { flex-wrap: wrap; }
+        .add-release .form-row { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Sorties Pokemon 30 ans</h2>
+    <p>Calendrier des sorties annoncees et rumeurs. Ajoute les produits que tu attends pour ne rien rater.</p>
+</div>
+
+<div class="card add-release">
+    <form method="POST" action="/releases/add">
+        <div class="form-row">
+            <input type="text" name="name" placeholder="Nom du produit" required>
+            <input type="text" name="date" placeholder="Date (ex: Mars 2026)">
+            <select name="category">
+                <option value="etb">ETB</option>
+                <option value="coffret">Coffret</option>
+                <option value="display">Display</option>
+                <option value="upc">UPC</option>
+                <option value="autre">Autre</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Ajouter</button>
+        </div>
+    </form>
+</div>
+
+<div class="release-list">
+    {% if not releases %}
+    <div style="text-align:center; padding:40px; color:var(--text-dim);">
+        <p>Aucune sortie suivie</p>
+    </div>
+    {% endif %}
+
+    {% for release in releases %}
+    <div class="release-card">
+        <span class="release-cat cat-{{ release.category }}">{{ release.category }}</span>
+        <div class="release-info">
+            <div class="release-name">{{ release.name }}</div>
+            <div class="release-date">{{ release.date }}</div>
+        </div>
+        <span class="release-status status-{{ release.status }}">{{ release.status | upper }}</span>
+        <form method="POST" action="/releases/remove">
+            <input type="hidden" name="name" value="{{ release.name }}">
+            <button type="submit" class="btn btn-danger btn-sm">Supprimer</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

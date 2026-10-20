@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% set active_page = "accounts" %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin: 20px 0 8px; }
+    .page-header p { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+    .site-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .site-row {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .site-row.ready { border-left: 3px solid var(--green); }
+    .site-row.not-ready { border-left: 3px solid var(--orange); }
+    .site-icon { font-size: 28px; flex-shrink: 0; }
+    .site-info { flex: 1; }
+    .site-name { font-weight: 600; font-size: 15px; }
+    .site-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .site-note { font-size: 12px; color: var(--blue); margin-top: 4px; font-style: italic; }
+    .site-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+    .ready-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .ready-badge.yes { background: #2ecc7133; color: var(--green); }
+    .ready-badge.no { background: #f39c1233; color: var(--orange); }
+    .note-form { display: flex; gap: 6px; margin-top: 6px; }
+    .note-form input { padding: 6px 10px; font-size: 12px; flex: 1; min-width: 120px; }
+    .note-form button { font-size: 11px; padding: 6px 10px; }
+    @media (max-width: 600px) {
+        .site-row { flex-wrap: wrap; }
+        .site-actions { width: 100%; justify-content: flex-end; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Mes Comptes</h2>
+    <p>Prepare tes comptes a l'avance sur chaque site pour acheter rapidement quand un restock arrive. Adresse de livraison, moyen de paiement, et mode de livraison configures = achat en quelques secondes.</p>
+</div>
+
+<div class="site-grid">
+    {% for site_name, site_info in sites.items() %}
+    {% set account = accounts | selectattr("site", "equalto", site_name) | first %}
+    {% set is_ready = account.ready if account else false %}
+    <div class="site-row {{ 'ready' if is_ready else 'not-ready' }}">
+        <div class="site-icon">{{ site_info.icon }}</div>
+        <div class="site-info">
+            <div class="site-name">{{ site_name }}</div>
+            <div class="site-desc">{{ site_info.desc }}</div>
+            {% if account and account.note %}
+            <div class="site-note">{{ account.note }}</div>
+            {% endif %}
+            <form class="note-form" method="POST" action="/accounts/note">
+                <input type="hidden" name="site" value="{{ site_name }}">
+                <input type="text" name="note" placeholder="Note (ex: CB enregistree, adresse OK)" value="{{ account.note if account else '' }}">
+                <button type="submit" class="btn btn-secondary btn-sm">Sauver</button>
+            </form>
+        </div>
+        <div class="site-actions">
+            <span class="ready-badge {{ 'yes' if is_ready else 'no' }}">
+                {{ "PRET" if is_ready else "A CONFIGURER" }}
+            </span>
+            <form method="POST" action="/accounts/toggle">
+                <input type="hidden" name="site" value="{{ site_name }}">
+                <button type="submit" class="btn {{ 'btn-secondary' if is_ready else 'btn-green' }} btn-sm">
+                    {{ "Retirer" if is_ready else "Marquer pret" }}
+                </button>
+            </form>
+            <a href="{{ site_info.account_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                Creer/Ouvrir compte
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

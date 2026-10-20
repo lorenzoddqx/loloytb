@@ -16,21 +16,56 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
 
 PRODUCTS_FILE = "products.json"
+ACCOUNTS_FILE = "accounts.json"
+RELEASES_FILE = "releases.json"
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "120"))
 
 lock = threading.Lock()
 
 
-def load_products():
-    if not os.path.exists(PRODUCTS_FILE):
+def _load_json(path):
+    if not os.path.exists(path):
         return []
-    with open(PRODUCTS_FILE, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
+def _save_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def load_products():
+    return _load_json(PRODUCTS_FILE)
+
+
 def save_products(products):
-    with open(PRODUCTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(products, f, indent=2, ensure_ascii=False)
+    _save_json(PRODUCTS_FILE, products)
+
+
+def load_accounts():
+    return _load_json(ACCOUNTS_FILE)
+
+
+def save_accounts(accounts):
+    _save_json(ACCOUNTS_FILE, accounts)
+
+
+def load_releases():
+    releases = _load_json(RELEASES_FILE)
+    if not releases:
+        releases = DEFAULT_RELEASES
+        _save_json(RELEASES_FILE, releases)
+    return releases
+
+
+DEFAULT_RELEASES = [
+    {"name": "Pokemon 30 ans - Coffret Collection Premium", "date": "2026", "status": "rumeur", "category": "coffret"},
+    {"name": "Pokemon 30 ans - ETB Elite Trainer Box", "date": "2026", "status": "rumeur", "category": "etb"},
+    {"name": "Pokemon 30 ans - Display Booster", "date": "2026", "status": "rumeur", "category": "display"},
+    {"name": "Pokemon 30 ans - Coffret Dresseur d'Elite", "date": "2026", "status": "rumeur", "category": "etb"},
+    {"name": "Pokemon 30 ans - UPC Ultra Premium Collection", "date": "2026", "status": "rumeur", "category": "upc"},
+]
 
 
 def check_all_products():
@@ -66,7 +101,17 @@ def check_all_products():
 @app.route("/")
 def index():
     products = load_products()
-    return render_template("index.html", products=products, sites=SUPPORTED_SITES)
+    accounts = load_accounts()
+    releases = load_releases()
+    in_stock_count = sum(1 for p in products if p.get("in_stock"))
+    return render_template(
+        "index.html",
+        products=products,
+        sites=SUPPORTED_SITES,
+        accounts=accounts,
+        releases=releases,
+        in_stock_count=in_stock_count,
+    )
 
 
 @app.route("/add", methods=["POST"])
@@ -125,6 +170,75 @@ def check_now():
     threading.Thread(target=check_all_products, daemon=True).start()
     flash("Vérification lancée !", "success")
     return redirect(url_for("index"))
+
+
+@app.route("/accounts")
+def accounts_page():
+    accounts = load_accounts()
+    return render_template("accounts.html", sites=SUPPORTED_SITES, accounts=accounts)
+
+
+@app.route("/accounts/toggle", methods=["POST"])
+def toggle_account():
+    site = request.form.get("site", "")
+    accounts = load_accounts()
+    existing = next((a for a in accounts if a["site"] == site), None)
+    if existing:
+        existing["ready"] = not existing.get("ready", False)
+    else:
+        accounts.append({
+            "site": site,
+            "ready": True,
+            "note": "",
+        })
+    save_accounts(accounts)
+    flash(f"Compte {site} mis a jour.", "success")
+    return redirect(url_for("accounts_page"))
+
+
+@app.route("/accounts/note", methods=["POST"])
+def update_account_note():
+    site = request.form.get("site", "")
+    note = request.form.get("note", "")
+    accounts = load_accounts()
+    existing = next((a for a in accounts if a["site"] == site), None)
+    if existing:
+        existing["note"] = note
+    else:
+        accounts.append({"site": site, "ready": False, "note": note})
+    save_accounts(accounts)
+    return redirect(url_for("accounts_page"))
+
+
+@app.route("/releases")
+def releases_page():
+    releases = load_releases()
+    return render_template("releases.html", releases=releases)
+
+
+@app.route("/releases/add", methods=["POST"])
+def add_release():
+    name = request.form.get("name", "").strip()
+    date = request.form.get("date", "").strip()
+    category = request.form.get("category", "autre").strip()
+    if not name:
+        flash("Le nom est obligatoire.", "error")
+        return redirect(url_for("releases_page"))
+    releases = load_releases()
+    releases.append({"name": name, "date": date or "TBA", "status": "rumeur", "category": category})
+    _save_json(RELEASES_FILE, releases)
+    flash("Sortie ajoutee.", "success")
+    return redirect(url_for("releases_page"))
+
+
+@app.route("/releases/remove", methods=["POST"])
+def remove_release():
+    name = request.form.get("name", "")
+    releases = load_releases()
+    releases = [r for r in releases if r["name"] != name]
+    _save_json(RELEASES_FILE, releases)
+    flash("Sortie supprimee.", "success")
+    return redirect(url_for("releases_page"))
 
 
 @app.route("/api/products")
