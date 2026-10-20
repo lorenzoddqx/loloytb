@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restock Tracker</title>
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card: #1a1a2e;
+            --accent: #e63946;
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --orange: #f39c12;
+            --text: #eee;
+            --text-dim: #888;
+            --border: #2a2a3e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 16px; }
+
+        header {
+            text-align: center;
+            padding: 32px 0 24px;
+        }
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        header h1 span { color: var(--accent); }
+        header p { color: var(--text-dim); margin-top: 4px; font-size: 14px; }
+
+        .add-form {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .add-form h2 { font-size: 16px; margin-bottom: 12px; }
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .form-row input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+        }
+        .form-row input:focus { outline: none; border-color: var(--accent); }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-secondary { background: var(--border); color: var(--text); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); }
+
+        .sites-list {
+            color: var(--text-dim);
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .sites-list span { margin-right: 12px; }
+
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .actions-bar h2 { font-size: 18px; }
+
+        .flash {
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .flash-success { background: #2ecc7122; border: 1px solid var(--green); color: var(--green); }
+        .flash-error { background: #e74c3c22; border: 1px solid var(--red); color: var(--red); }
+
+        .product-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .product-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: border-color 0.2s;
+        }
+        .product-card:hover { border-color: #444; }
+        .product-card.in-stock { border-left: 3px solid var(--green); }
+        .product-card.out-of-stock { border-left: 3px solid var(--red); }
+
+        .product-icon { font-size: 28px; flex-shrink: 0; }
+        .product-info { flex: 1; min-width: 0; }
+        .product-name {
+            font-weight: 600;
+            font-size: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .product-name a { color: var(--text); text-decoration: none; }
+        .product-name a:hover { text-decoration: underline; }
+        .product-meta {
+            color: var(--text-dim);
+            font-size: 12px;
+            margin-top: 4px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .status-badge.stock { background: #2ecc7133; color: var(--green); }
+        .status-badge.no-stock { background: #e74c3c33; color: var(--red); }
+
+        .product-actions { flex-shrink: 0; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+        .empty-state p { font-size: 16px; margin-bottom: 8px; }
+        .empty-state small { font-size: 13px; }
+
+        @media (max-width: 600px) {
+            .product-card { flex-wrap: wrap; }
+            .form-row { flex-direction: column; }
+            .product-meta { flex-direction: column; gap: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Restock <span>Tracker</span></h1>
+            <p>Surveille les restocks et nouvelles sorties — notifications instantanees</p>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
+        <div class="add-form">
+            <h2>Ajouter un produit</h2>
+            <form method="POST" action="/add">
+                <div class="form-row">
+                    <input type="url" name="url" placeholder="URL du produit (Amazon, Fnac, Micromania...)" required>
+                    <input type="text" name="name" placeholder="Nom (optionnel)">
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                </div>
+            </form>
+            <div class="sites-list">
+                Sites supportes :
+                {% for name, info in sites.items() %}
+                <span>{{ info.icon }} {{ name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="actions-bar">
+            <h2>Produits suivis ({{ products|length }})</h2>
+            {% if products %}
+            <form method="POST" action="/check-now">
+                <button type="submit" class="btn btn-secondary btn-sm">Verifier maintenant</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <div class="product-list">
+            {% if not products %}
+            <div class="empty-state">
+                <p>Aucun produit suivi</p>
+                <small>Ajoute un lien vers un produit pour commencer le tracking</small>
+            </div>
+            {% endif %}
+
+            {% for product in products %}
+            <div class="product-card {{ 'in-stock' if product.in_stock else 'out-of-stock' }}">
+                <div class="product-icon">
+                    {% for name, info in sites.items() %}
+                        {% if name == product.site %}{{ info.icon }}{% endif %}
+                    {% endfor %}
+                </div>
+                <div class="product-info">
+                    <div class="product-name">
+                        <a href="{{ product.url }}" target="_blank" rel="noopener">{{ product.name }}</a>
+                    </div>
+                    <div class="product-meta">
+                        <span>{{ product.site }}</span>
+                        {% if product.price %}<span>{{ product.price }}</span>{% endif %}
+                        {% if product.last_check %}<span>Derniere verif: {{ product.last_check }}</span>{% endif %}
+                    </div>
+                </div>
+                <span class="status-badge {{ 'stock' if product.in_stock else 'no-stock' }}">
+                    {{ "EN STOCK" if product.in_stock else "INDISPONIBLE" }}
+                </span>
+                <div class="product-actions">
+                    <form method="POST" action="/remove" style="display:inline">
+                        <input type="hidden" name="url" value="{{ product.url }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Supprimer</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
