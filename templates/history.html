@@ -47,6 +47,7 @@
     .price-change-down { color: var(--green); }
     .no-history { color: var(--text-dim); font-size: 13px; font-style: italic; }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .price-count { font-size: 12px; color: var(--text-dim); margin-left: 8px; }
 </style>
 {% endblock %}
 
@@ -71,6 +72,9 @@
             <div>
                 <div class="history-name">
                     <a href="{{ product.url }}" target="_blank" rel="noopener">{{ product.name }}</a>
+                    {% if prices %}
+                    <span class="price-count">({{ prices|length }} releve{{ 's' if prices|length > 1 else '' }})</span>
+                    {% endif %}
                 </div>
                 <div class="history-site">{{ product.site }}</div>
             </div>
@@ -89,8 +93,9 @@
                     <td>{{ p.date }}</td>
                     <td>{{ p.price }}</td>
                     <td>
-                        {% if not loop.last %}
-                            {% set prev = prices[loop.revindex0 - 1] %}
+                        {% if loop.index < prices|length %}
+                            {% set prev_idx = prices|length - loop.index - 1 %}
+                            {% set prev = prices[prev_idx] %}
                             {% if prev.price != p.price %}
                             <span>{{ prev.price }} &rarr; {{ p.price }}</span>
                             {% else %}

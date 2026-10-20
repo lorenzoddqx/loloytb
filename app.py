@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from scrapers import check_product, SUPPORTED_SITES
-from notifier import notify
+from notifier import notify, get_active_channels, get_notification_log
 
 load_dotenv()
 
@@ -24,18 +24,27 @@ HISTORY_FILE = "price_history.json"
 CHECK_INTERVAL = max(30, int(os.getenv("CHECK_INTERVAL", "30")))
 
 lock = threading.Lock()
+_checking = threading.Event()
 
 
 def _load_json(path):
     if not os.path.exists(path):
         return []
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            return []
+        return data
+    except (json.JSONDecodeError, ValueError, OSError):
+        return []
 
 
 def _save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
 
 
 def load_products():
@@ -73,19 +82,21 @@ def save_history(history):
 def record_price(url, price):
     if not price:
         return
-    history = load_history()
-    entry = {"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "price": price}
-    if url not in [h["url"] for h in history]:
-        history.append({"url": url, "prices": [entry]})
-    else:
+    with lock:
+        history = load_history()
+        entry = {"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "price": price}
+        found = False
         for h in history:
             if h["url"] == url:
+                found = True
                 if not h["prices"] or h["prices"][-1]["price"] != price:
                     h["prices"].append(entry)
                     if len(h["prices"]) > 500:
                         h["prices"] = h["prices"][-500:]
                 break
-    save_history(history)
+        if not found:
+            history.append({"url": url, "prices": [entry]})
+        save_history(history)
 
 
 DEFAULT_RELEASES = [
@@ -103,43 +114,49 @@ def _check_single(product_snapshot):
 
 
 def check_all_products():
-    start = time.monotonic()
-    with lock:
-        products = load_products()
-    if not products:
+    if _checking.is_set():
         return
-    print(f"[{datetime.now():%H:%M:%S}] Checking {len(products)} products...")
-    results = {}
-    with ThreadPoolExecutor(max_workers=10) as pool:
-        futures = {pool.submit(_check_single, p): p["url"] for p in products}
-        for future in as_completed(futures):
-            try:
-                url, result = future.result()
-                results[url] = result
-            except Exception as e:
-                print(f"  > Check failed for {futures[future]}: {e}")
-    for product in products:
-        result = results.get(product["url"])
-        if result is None:
-            continue
-        was_in_stock = product.get("in_stock", False)
-        now_in_stock = result["in_stock"]
-        product["last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        product["price"] = result["price"] or product.get("price")
-        if result["title"] != "Produit inconnu":
-            product["name"] = result["title"]
-        record_price(product["url"], product.get("price"))
-        if not was_in_stock and now_in_stock:
-            notify(product["name"], product["url"], product["price"], "EN STOCK")
-            product["in_stock"] = True
-        elif was_in_stock and not now_in_stock:
-            product["in_stock"] = False
-        else:
-            product["in_stock"] = now_in_stock
-    with lock:
-        save_products(products)
-    elapsed = time.monotonic() - start
-    print(f"[{datetime.now():%H:%M:%S}] Done in {elapsed:.1f}s")
+    _checking.set()
+    try:
+        with lock:
+            products = load_products()
+        if not products:
+            return
+        start = time.monotonic()
+        print(f"[{datetime.now():%H:%M:%S}] Checking {len(products)} products...")
+        results = {}
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            futures = {pool.submit(_check_single, p): p["url"] for p in products}
+            for future in as_completed(futures):
+                try:
+                    url, result = future.result()
+                    results[url] = result
+                except Exception as e:
+                    print(f"  > Check failed for {futures[future]}: {e}")
+        for product in products:
+            result = results.get(product["url"])
+            if result is None:
+                continue
+            was_in_stock = product.get("in_stock", False)
+            now_in_stock = result["in_stock"]
+            product["last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            product["price"] = result["price"] or product.get("price")
+            if result["title"] != "Produit inconnu":
+                product["name"] = result["title"]
+            record_price(product["url"], product.get("price"))
+            if not was_in_stock and now_in_stock:
+                notify(product["name"], product["url"], product["price"], "EN STOCK")
+                product["in_stock"] = True
+            elif was_in_stock and not now_in_stock:
+                product["in_stock"] = False
+            else:
+                product["in_stock"] = now_in_stock
+        with lock:
+            save_products(products)
+        elapsed = time.monotonic() - start
+        print(f"[{datetime.now():%H:%M:%S}] Done in {elapsed:.1f}s")
+    finally:
+        _checking.clear()
 
 
 @app.route("/")
@@ -182,43 +199,46 @@ def add_product():
             flash("URL invalide.", "error")
             return redirect(url_for("index"))
 
-    products = load_products()
-    if any(p["url"] == url for p in products):
-        flash("Ce produit est déjà suivi.", "error")
-        return redirect(url_for("index"))
-
-    product = {
-        "url": url,
-        "name": name or "Chargement...",
-        "site": site_found,
-        "in_stock": False,
-        "price": None,
-        "added": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "last_check": None,
-    }
-    products.append(product)
     with lock:
+        products = load_products()
+        if any(p["url"] == url for p in products):
+            flash("Ce produit est deja suivi.", "error")
+            return redirect(url_for("index"))
+
+        product = {
+            "url": url,
+            "name": name or "Chargement...",
+            "site": site_found,
+            "in_stock": False,
+            "price": None,
+            "added": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "last_check": None,
+        }
+        products.append(product)
         save_products(products)
 
-    flash(f"Produit ajouté ! Prochaine vérification dans {CHECK_INTERVAL}s.", "success")
+    flash(f"Produit ajoute ! Prochaine verification dans {CHECK_INTERVAL}s.", "success")
     return redirect(url_for("index"))
 
 
 @app.route("/remove", methods=["POST"])
 def remove_product():
     url = request.form.get("url", "")
-    products = load_products()
-    products = [p for p in products if p["url"] != url]
     with lock:
+        products = load_products()
+        products = [p for p in products if p["url"] != url]
         save_products(products)
-    flash("Produit supprimé.", "success")
+    flash("Produit supprime.", "success")
     return redirect(url_for("index"))
 
 
 @app.route("/check-now", methods=["POST"])
 def check_now():
-    threading.Thread(target=check_all_products, daemon=True).start()
-    flash("Vérification lancée !", "success")
+    if _checking.is_set():
+        flash("Une verification est deja en cours...", "error")
+    else:
+        threading.Thread(target=check_all_products, daemon=True).start()
+        flash("Verification lancee !", "success")
     return redirect(url_for("index"))
 
 
@@ -236,11 +256,7 @@ def toggle_account():
     if existing:
         existing["ready"] = not existing.get("ready", False)
     else:
-        accounts.append({
-            "site": site,
-            "ready": True,
-            "note": "",
-        })
+        accounts.append({"site": site, "ready": True, "note": ""})
     save_accounts(accounts)
     flash(f"Compte {site} mis a jour.", "success")
     return redirect(url_for("accounts_page"))
@@ -299,9 +315,42 @@ def history_page():
     return render_template("history.html", products=products, history_map=history_map)
 
 
+@app.route("/settings")
+def settings_page():
+    channels = get_active_channels()
+    log = get_notification_log()
+    return render_template(
+        "settings.html",
+        channels=channels,
+        notification_log=log[-20:],
+        check_interval=CHECK_INTERVAL,
+    )
+
+
+@app.route("/test-notification", methods=["POST"])
+def test_notification():
+    notify("Test Notification", "https://example.com", "0.00 EUR", "TEST")
+    flash("Notification de test envoyee sur tous les canaux actifs.", "success")
+    return redirect(url_for("settings_page"))
+
+
 @app.route("/api/products")
 def api_products():
     return jsonify(load_products())
+
+
+@app.route("/api/status")
+def api_status():
+    products = load_products()
+    return jsonify({
+        "status": "running",
+        "products_count": len(products),
+        "in_stock_count": sum(1 for p in products if p.get("in_stock")),
+        "check_interval": CHECK_INTERVAL,
+        "checking_now": _checking.is_set(),
+        "channels": get_active_channels(),
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    })
 
 
 @app.route("/api/history/<path:url>")
@@ -313,9 +362,21 @@ def api_history(url):
     return jsonify([])
 
 
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("error.html", code=404, message="Page introuvable"), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template("error.html", code=500, message="Erreur interne du serveur"), 500
+
+
 scheduler = BackgroundScheduler(daemon=True)
-scheduler.add_job(check_all_products, "interval", seconds=CHECK_INTERVAL)
-scheduler.start()
+scheduler.add_job(check_all_products, "interval", seconds=CHECK_INTERVAL, id="main_check", replace_existing=True)
+
+if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    scheduler.start()
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin: 20px 0 8px; }
+    .page-header p { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+
+    .settings-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+
+    .settings-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+    }
+    .settings-card h3 { font-size: 15px; margin-bottom: 12px; }
+
+    .channel-list { display: flex; flex-direction: column; gap: 8px; }
+    .channel-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+    }
+    .channel-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .channel-dot.active { background: var(--green); }
+    .channel-dot.inactive { background: var(--red); }
+    .channel-name { flex: 1; }
+    .channel-status { font-size: 12px; color: var(--text-dim); }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 14px;
+        border-bottom: 1px solid var(--border);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-dim); }
+    .info-value { font-weight: 600; }
+
+    .log-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-top: 8px;
+    }
+    .log-table th {
+        text-align: left;
+        color: var(--text-dim);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 400;
+    }
+    .log-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+    }
+    .log-ok { color: var(--green); }
+    .log-fail { color: var(--red); }
+
+    .no-logs { color: var(--text-dim); font-size: 13px; font-style: italic; padding: 12px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Parametres & Notifications</h2>
+    <p>Configuration des canaux de notification et etat du systeme.</p>
+</div>
+
+<div class="settings-grid">
+    <div class="settings-card">
+        <h3>Configuration</h3>
+        <div class="info-row">
+            <span class="info-label">Intervalle de verification</span>
+            <span class="info-value">{{ check_interval }}s</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Canaux actifs</span>
+            <span class="info-value">{{ channels|length }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Configurable via</span>
+            <span class="info-value">.env</span>
+        </div>
+    </div>
+
+    <div class="settings-card">
+        <h3>Canaux de notification</h3>
+        <div class="channel-list">
+            {% set all_channels = [("Discord", "DISCORD_WEBHOOK_URL"), ("Telegram", "TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID"), ("Email", "EMAIL_SENDER + EMAIL_PASSWORD + EMAIL_RECEIVER")] %}
+            {% for name, env_var in all_channels %}
+            <div class="channel-row">
+                <span class="channel-dot {{ 'active' if name in channels else 'inactive' }}"></span>
+                <span class="channel-name">{{ name }}</span>
+                <span class="channel-status">
+                    {% if name in channels %}
+                    Actif
+                    {% else %}
+                    Inactif — configurer {{ env_var }} dans .env
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        <form method="POST" action="/test-notification" style="margin-top: 16px;">
+            <button type="submit" class="btn btn-primary btn-sm" {{ 'disabled' if not channels else '' }}>
+                Envoyer une notification de test
+            </button>
+        </form>
+    </div>
+
+    <div class="settings-card">
+        <h3>Dernieres notifications</h3>
+        {% if notification_log %}
+        <table class="log-table">
+            <thead>
+                <tr><th>Heure</th><th>Canal</th><th>Produit</th><th>Statut</th><th>Detail</th></tr>
+            </thead>
+            <tbody>
+                {% for entry in notification_log|reverse %}
+                <tr>
+                    <td>{{ entry.time }}</td>
+                    <td>{{ entry.channel }}</td>
+                    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ entry.product }}</td>
+                    <td class="{{ 'log-ok' if entry.success else 'log-fail' }}">
+                        {{ "OK" if entry.success else "Echec" }}
+                    </td>
+                    <td style="color:var(--text-dim)">{{ entry.detail }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-logs">Aucune notification envoyee pour l'instant.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
