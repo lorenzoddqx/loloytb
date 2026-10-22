@@ -7,3 +7,4 @@ venv/
 products.json
 accounts.json
 price_history.json
+releases.json
