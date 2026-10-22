@@ -9,7 +9,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from scrapers import check_product, SUPPORTED_SITES, sort_by_priority
+from scrapers import check_product, SUPPORTED_SITES, sort_by_priority, search_amazon
 from notifier import notify, get_active_channels, get_notification_log
 
 load_dotenv()
@@ -181,8 +181,39 @@ def index():
 def add_product():
     url = request.form.get("url", "").strip()
     name = request.form.get("name", "").strip()
-    if not url:
-        flash("L'URL est obligatoire.", "error")
+
+    if not url and not name:
+        flash("Mets un lien ou un nom de produit.", "error")
+        return redirect(url_for("index"))
+
+    if not url and name:
+        results = search_amazon(name)
+        if not results:
+            flash("Aucun produit trouve sur Amazon. Essaie avec un lien direct.", "error")
+            return redirect(url_for("index"))
+
+        added = 0
+        with lock:
+            products = load_products()
+            for r in results:
+                if not any(p["url"] == r["url"] for p in products):
+                    products.append({
+                        "url": r["url"],
+                        "name": r["name"],
+                        "site": "Amazon",
+                        "in_stock": False,
+                        "price": r.get("price"),
+                        "added": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "last_check": None,
+                    })
+                    added += 1
+            save_products(products)
+
+        if added:
+            flash(f"{added} produits Amazon ajoutes ! Scan lance...", "success")
+            threading.Thread(target=check_all_products, daemon=True).start()
+        else:
+            flash("Ces produits sont deja suivis.", "error")
         return redirect(url_for("index"))
 
     site_found = None

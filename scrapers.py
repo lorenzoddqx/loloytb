@@ -2,7 +2,7 @@ import random
 import time
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -361,3 +361,41 @@ def get_site_priority(url):
 
 def sort_by_priority(products):
     return sorted(products, key=lambda p: get_site_priority(p["url"]))
+
+
+def search_amazon(query, max_results=5):
+    search_url = f"https://www.amazon.fr/s?k={quote_plus(query)}&i=toys"
+    soup = _get_page(search_url)
+    if not soup:
+        return []
+
+    results = []
+    for div in soup.select("[data-component-type='s-search-result']"):
+        asin = div.get("data-asin", "")
+        if not asin:
+            continue
+
+        title_el = div.select_one("h2 a span") or div.select_one("h2 span")
+        if not title_el:
+            continue
+        title = title_el.get_text(strip=True)
+
+        query_words = [w.lower() for w in query.split() if len(w) > 2]
+        if not any(w in title.lower() for w in query_words):
+            continue
+
+        price_el = div.select_one("span.a-price-whole")
+        price = None
+        if price_el:
+            price = price_el.get_text(strip=True).rstrip(",.") + " EUR"
+
+        results.append({
+            "url": f"https://www.amazon.fr/dp/{asin}",
+            "name": title[:200],
+            "price": price,
+        })
+
+        if len(results) >= max_results:
+            break
+
+    return results
