@@ -77,20 +77,6 @@ SUPPORTED_SITES = {
         "desc": "ETB et coffrets Pokemon",
         "priority": 3,
     },
-    "Monoprix": {
-        "domains": ["monoprix.fr"],
-        "icon": "🟡",
-        "account_url": "https://www.monoprix.fr/mon-compte",
-        "desc": "Jouets et cartes Pokemon - livraison rapide",
-        "priority": 3,
-    },
-    "Intermarche": {
-        "domains": ["intermarche.com"],
-        "icon": "🔶",
-        "account_url": "https://www.intermarche.com/mon-compte",
-        "desc": "Coffrets et ETB Pokemon - Drive + livraison",
-        "priority": 3,
-    },
     "JouéClub": {
         "domains": ["joueclub.fr"],
         "icon": "🧸",
@@ -104,13 +90,6 @@ SUPPORTED_SITES = {
         "account_url": "https://www.king-jouet.com/customer/account/login",
         "desc": "Jouets et jeux - ETB, displays Pokemon",
         "priority": 2,
-    },
-    "Rakuten": {
-        "domains": ["rakuten.com", "fr.shopping.rakuten.com"],
-        "icon": "🅡",
-        "account_url": "https://fr.shopping.rakuten.com/login",
-        "desc": "Marketplace - prix variables, cashback",
-        "priority": 4,
     },
     "Smyths Toys": {
         "domains": ["smythstoys.com"],
@@ -126,26 +105,12 @@ SUPPORTED_SITES = {
         "desc": "Specialiste jeux de cartes - precommandes Pokemon",
         "priority": 2,
     },
-    "Pokemart": {
-        "domains": ["pokemart.fr"],
-        "icon": "📮",
-        "account_url": "https://www.pokemart.fr/connexion",
-        "desc": "Boutique specialisee Pokemon FR",
-        "priority": 1,
-    },
     "Cardmarket": {
         "domains": ["cardmarket.com"],
         "icon": "📊",
         "account_url": "https://www.cardmarket.com/en/Login",
         "desc": "Marketplace cartes a l'unite + scellees",
         "priority": 2,
-    },
-    "Gamestop": {
-        "domains": ["gamestop.fr", "gamestop.com"],
-        "icon": "🕹️",
-        "account_url": "https://www.gamestop.fr/Profile/Login",
-        "desc": "Gaming et cartes Pokemon - exclusivites",
-        "priority": 3,
     },
 }
 
@@ -379,16 +344,11 @@ SCRAPERS = {
     "Carrefour": _scrape_generic,
     "Leclerc": _scrape_generic,
     "Auchan": _scrape_generic,
-    "Monoprix": _scrape_generic,
-    "Intermarche": _scrape_generic,
     "JouéClub": _scrape_generic,
     "King Jouet": _scrape_generic,
-    "Rakuten": _scrape_generic,
     "Smyths Toys": _scrape_generic,
     "Philibert": _scrape_generic,
-    "Pokemart": _scrape_generic,
     "Cardmarket": _scrape_generic,
-    "Gamestop": _scrape_generic,
 }
 
 

@@ -1,55 +1,39 @@
 # Restock Tracker
 
-Application web pour surveiller les restocks et nouvelles sorties de produits (ETB Pokemon, consoles, etc.) sur plusieurs sites e-commerce.
+Surveillance automatique de restocks Pokemon sur les sites francais.
+Notifications Telegram instantanees quand un produit revient en stock.
 
-## Sites supportes
+## Deploiement en 1 clic (gratuit)
 
-- Amazon (FR, US, DE, UK)
-- Fnac
-- Micromania
-- Pokemon Center
-- Cdiscount
-- Cultura
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/lorenzoddqx/loloytb)
 
-## Notifications
+Apres le clic :
+1. Connecte-toi avec GitHub
+2. Remplis `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID`
+3. Clique "Apply" — le site est en ligne en 2 minutes
 
-- **Discord** — webhook vers un salon de ton choix
-- **Email** — alertes par email (Gmail ou autre SMTP)
-- **Console** — affichage dans le terminal
+## Sites surveilles (14 sites fiables)
 
-## Installation
+| Priorite | Sites |
+|----------|-------|
+| Haute | Amazon, Pokemon Center |
+| Moyenne | Fnac, Micromania, Cultura, JoueClub, King Jouet, Smyths Toys, Philibert, Cardmarket |
+| Normale | Cdiscount, Carrefour, Leclerc, Auchan |
 
-```bash
-# Cloner le repo
-git clone https://github.com/lorenzoddqx/loloytb.git
-cd loloytb
++ tout autre site web via le scraper generique.
 
-# Installer les dependances
-pip install -r requirements.txt
+## Fonctionnement
 
-# Configurer les notifications
-cp .env.example .env
-# Editer .env avec tes identifiants Discord/email
+- Scan automatique toutes les 30 secondes
+- Amazon et Pokemon Center scannes en priorite
+- Notification Telegram instantanee quand un produit revient en stock
+- Dashboard web avec suivi en temps reel
+- Historique des prix
 
-# Lancer l'application
-python app.py
-```
+## Configuration Telegram
 
-L'app sera accessible sur `http://localhost:5000`
-
-## Utilisation
-
-1. Ouvrir `http://localhost:5000` dans ton navigateur
-2. Coller le lien d'un produit a surveiller
-3. L'app verifie automatiquement toutes les 2 minutes (configurable)
-4. Tu recois une notification Discord/email des qu'un produit revient en stock
-
-## Configuration (.env)
-
-| Variable | Description |
-|---|---|
-| `DISCORD_WEBHOOK_URL` | URL du webhook Discord |
-| `EMAIL_SENDER` | Adresse email d'envoi |
-| `EMAIL_PASSWORD` | Mot de passe d'application |
-| `EMAIL_RECEIVER` | Adresse email de reception |
-| `CHECK_INTERVAL` | Intervalle de verification en secondes (defaut: 120) |
+1. Ouvre Telegram, cherche `@BotFather`
+2. Envoie `/newbot`, choisis un nom
+3. Copie le token
+4. Envoie un message a ton bot, puis va sur `https://api.telegram.org/bot<TOKEN>/getUpdates`
+5. Copie le `chat_id`
